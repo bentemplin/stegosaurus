@@ -8,7 +8,7 @@
 #define LOW_BYTE(val) (0xFF & (val))
 
 // Uncomment to obfuscate
-#define OBFUSCATE
+//#define OBFUSCATE
 // Uncomment to change the sentinel byte
 #define CHANGE_SEN
 
