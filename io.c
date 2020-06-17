@@ -52,6 +52,7 @@ msg_data_t read_message_from_file(const char *filename) {
     ret.msg = calloc(msg_len, sizeof(char));
     if (!ret.msg) {
         fprintf(stderr, "Couldn't read in message - malloc failed\n");
+        fclose(msg_fp);
         return ret;
     }
 
