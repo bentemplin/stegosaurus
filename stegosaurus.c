@@ -1,6 +1,27 @@
 #include "io.h"
 #include "stegosaurus.h"
 
+#ifdef OBFUSCATE
+void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
+    if (sz == 0) return;
+
+    unsigned char reg = src[0];
+    dst[0] = reg;
+    for (int i = 1; i < sz; ++i) {
+        unsigned char c = src[i];
+#ifdef CHANGE_SEN
+        // 9 == number of sentinel states + 1; we don't XOR the sentinel byte itself!
+        if ((i % 9) == 0) {
+            reg = c;
+            c = 0x0; // Ensures that when we XOR we get original byte back
+        }
+#endif
+        dst[i] = c ^ reg;
+        reg = (reg >> 1) + ((reg & 0x1) << 7);
+    }
+}
+#endif
+
 char encrypt_algorithm (char pixel1, char pixel2, char msg_char) {
     char xor_1, xor_2;
 
@@ -15,6 +36,9 @@ int insert_msg_into_file (msg_data_t *msg, char *in_file, char *out_file) {
     // make sure we didn't get any null pointers
     if (!msg || !in_file || !out_file) return STEG_UNSPECIFIED_ERROR;
 
+#ifdef OBFUSCATE
+    obfuscate((unsigned char*)msg->msg, (unsigned char*)msg->msg, msg->size);
+#endif
     FILE *in_img = fopen(in_file, "rb");
 
     if (!in_img) {

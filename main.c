@@ -72,7 +72,14 @@ int main (int argc, char **argv) {
         free(extracted_msg.msg);
         exit(1);
     } 
-    
+#ifdef OBFUSCATE
+    printf("Obfuscated: 0x");
+    for (int c = 0; c < extracted_msg.size; ++c) {
+        printf("%02x", extracted_msg.msg[c] & 0xff);
+    }
+    printf("\n");
+    obfuscate((unsigned char*)extracted_msg.msg, (unsigned char*)extracted_msg.msg, extracted_msg.size);
+#endif
     printf("%s\n", extracted_msg.msg);
     free(extracted_msg.msg);
 
