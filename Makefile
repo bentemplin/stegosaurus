@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -Werror -Wpedantic -DOBFUSCATE
 DEBUG_FLAG=-g
-FILES=main.c stegosaurus.c io.c 
+FILES=main.c stegosaurus.c utils.c 
 OUT_FILE=stegosaurus
 
 default:

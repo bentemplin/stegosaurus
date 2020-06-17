@@ -1,6 +1,6 @@
 // #include <getopt.h>
 #include <unistd.h>
-#include "io.h"
+#include "utils.h"
 #include "stegosaurus.h"
 
 int main (int argc, char **argv) {
@@ -63,10 +63,13 @@ int main (int argc, char **argv) {
 
     // hide the message
     int result = insert_msg_into_file(&msg, img_fname, out_fname);
+    free(msg.msg);
+    msg.size = -1;
+
     if (result != STEG_SUCCESS_CODE) exit(1);
 
     // retreive it
-    msg_data_t extracted_msg = extract_msg_from_file(out_fname);
+    msg_data_t extracted_msg = extract_msg_from_img(out_fname);
     if (extracted_msg.size < 0) {
         // error
         free(extracted_msg.msg);
