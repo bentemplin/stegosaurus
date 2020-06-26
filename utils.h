@@ -12,8 +12,12 @@
 // Uncomment to change the sentinel byte
 #define CHANGE_SEN
 
-// Uncomment to encrypt
-// #define ENCRYPT
+/*
+
+  NOTE: Encryption must be turned on or off in the Makefile because it changes
+        which libraries need to be included!
+
+*/
 
 #ifdef ENCRYPT
 #include <sodium.h>

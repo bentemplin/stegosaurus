@@ -1,18 +1,36 @@
+# Basic Stuff
 CC=gcc
-CFLAGS=-Wall -Werror -Wpedantic -lsodium -DOBFUSCATE -DENCRYPT
-DEBUG_FLAG=-g
 FILES=main.c stegosaurus.c utils.c 
 OUT_FILE=stegosaurus
 
+# Flags
+CFLAGS=-Wall -Werror -Wpedantic -DOBFUSCATE
+ENCRYPT_FLAG=-DENCRYPT
+DEBUG_FLAG=-g
+
+# Libs
+ENCRYPT_LIB=-lsodium
+
+# Conditional Stuff
+# - Comment out a line to turn off that feature
+ENCRYPT=1
+
+ifdef ENCRYPT
+default:
+	@ $(CC) $(CFLAGS) $(ENCRYPT_FLAG) $(ENCRYPT_LIB) $(FILES) -o $(OUT_FILE)
+debug:
+	@ $(CC) $(CFLAGS) $(DEBUG_FLAG) $(ENCRYPT_FLAG) $(ENCRYPT_LIB) $(FILES) -o $(OUT_FILE)
+else 
 default:
 	@ $(CC) $(CFLAGS) $(FILES) -o $(OUT_FILE)
+debug:
+	@ $(CC) $(CFLAGS) $(DEBUG_FLAG) $(FILES) -o $(OUT_FILE)
+endif
 
 clean:
 	@ rm -f $(OUT_FILE)
 	@ rm -f -r *.dSYM
 
-debug:
-	@ $(CC) $(CFLAGS) $(DEBUG_FLAG) $(FILES) -o $(OUT_FILE)
 
 help:
 	@ echo
