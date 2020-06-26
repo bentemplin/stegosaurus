@@ -1,4 +1,3 @@
-// #include <getopt.h>
 #include <unistd.h>
 #include "utils.h"
 #include "stegosaurus.h"
@@ -61,6 +60,32 @@ int main (int argc, char **argv) {
     // do the actual work!
     msg_data_t msg = read_message_from_file(msg_fname);
 
+    // encrypt if necessary
+    #ifdef ENCRYPT
+
+    key_salt_pair_t key_info = generate_key_and_salt();
+
+    encrypted_payload_t enc_payload = steg_encrypt(&msg, key_info);
+
+    printf("Nonce:\t\t\t");
+    print_buf_to_hex(enc_payload.nonce, crypto_secretbox_NONCEBYTES);
+
+    printf("\nSalt:\t\t\t");
+    print_buf_to_hex(enc_payload.salt, crypto_pwhash_SALTBYTES);
+    printf("\n");
+
+    printf("Message length:\t\t%zu\nEncrypted payload:\t", enc_payload.msg_len);
+
+    print_buf_to_hex(enc_payload.ciphertext, strlen((char *)enc_payload.ciphertext));
+    printf("\n");
+
+    free(msg.msg);
+
+    msg.msg = package_payload(&enc_payload);
+    msg.size = enc_payload.payload_len;
+
+    #endif
+
     // hide the message
     int result = insert_msg_into_file(&msg, img_fname, out_fname);
     free(msg.msg);
@@ -73,6 +98,7 @@ int main (int argc, char **argv) {
     if (extracted_msg.size < 0) {
         // error
         free(extracted_msg.msg);
+        fprintf(stderr, "Could not extract message! Aborting.\n");
         exit(1);
     } 
 #ifdef OBFUSCATE
@@ -83,7 +109,44 @@ int main (int argc, char **argv) {
     printf("\n");
     obfuscate((unsigned char*)extracted_msg.msg, (unsigned char*)extracted_msg.msg, extracted_msg.size);
 #endif
-    printf("%s\n", extracted_msg.msg);
+    
+    printf("Extracted Message: ");
+    print_buf_to_hex(extracted_msg.msg, extracted_msg.size);
+    printf("\n");
+
+#ifdef ENCRYPT
+    encrypted_payload_t recovered_payload = extract_payload(&extracted_msg);
+
+    if (recovered_payload.msg_len == -1 || recovered_payload.payload_len == -1) {
+        free(extracted_msg.msg);
+        exit(1);
+    }
+
+    printf("Nonce:\t\t\t");
+    print_buf_to_hex(recovered_payload.nonce, crypto_secretbox_NONCEBYTES);
+
+    printf("\nSalt:\t\t\t");
+    print_buf_to_hex(recovered_payload.salt, crypto_pwhash_SALTBYTES);
+    printf("Message length:\t\t%zu\nPayload size:\t\t%zu\nEncrypted message:\t", recovered_payload.msg_len, 
+        recovered_payload.payload_len);
+    print_buf_to_hex(recovered_payload.ciphertext, recovered_payload.msg_len + crypto_secretbox_MACBYTES);
+    printf("\n");
+
+    extracted_msg = steg_decrypt(&recovered_payload);
+
+    if (extracted_msg.size == -1) {
+        free(extracted_msg.msg);
+        exit(1);
+    }
+
+#endif
+
+    printf("Final Message:\t%s\n", extracted_msg.msg);
+    printf("Message size:\t%zu\n", extracted_msg.size);
+
+#ifdef ENCRYPT
+    sodium_memzero(extracted_msg.msg, extracted_msg.size); // if the plaintext was encrypted, erase it.
+#endif
     free(extracted_msg.msg);
 
     return 0;

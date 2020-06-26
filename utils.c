@@ -70,6 +70,13 @@ msg_data_t read_message_from_file(const char *filename) {
     return ret;
 }
 
+void print_buf_to_hex(void *buf, size_t size) {
+    char *char_buf = (char *)buf;
+    for (size_t i = 0; i < size; i++) {
+        printf("%02x ", 0xff & char_buf[i]);
+    }
+}
+
 #ifdef OBFUSCATE
 void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
     if (sz == 0) return;
@@ -89,4 +96,201 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
         reg = (reg >> 1) + ((reg & 0x1) << 7);
     }
 }
+#endif
+
+#ifdef ENCRYPT
+    unsigned char *generate_key(unsigned char *salt) {
+        unsigned char *ret_key = calloc(crypto_secretbox_KEYBYTES, 1);
+
+        if (!ret_key) {
+            fprintf(stderr, "Could not malloc space for new key! Aborting.\n");
+            return 0;
+        }
+
+        char *password_secure = getpass("Enter Password: ");
+
+        if (!password_secure) {
+            fprintf(stderr, "Could not retrieve input password! Aborting\n");
+            free(ret_key);
+
+            return 0;
+        }
+
+        if (crypto_pwhash(ret_key, crypto_secretbox_KEYBYTES, password_secure, 
+            strlen(password_secure), salt, crypto_pwhash_OPSLIMIT_INTERACTIVE, 
+            crypto_pwhash_MEMLIMIT_INTERACTIVE, crypto_pwhash_ALG_DEFAULT) != 0) {
+            // error
+            fprintf(stderr, "Could not generate key! Aborting\n");
+
+            sodium_memzero(password_secure, strlen(password_secure));
+            sodium_memzero(ret_key, crypto_secretbox_KEYBYTES);
+            free(ret_key);
+
+            return 0;
+        }
+        
+        printf("Key generation successful.\n");
+
+        sodium_memzero(password_secure, strlen(password_secure));
+
+        return ret_key;
+    }
+
+    key_salt_pair_t generate_key_and_salt() {
+        key_salt_pair_t ret;
+
+        randombytes_buf(ret.salt, sizeof(ret.salt));
+
+        printf("Salt generation successful.\n");
+
+        unsigned char *temp_key_secure = generate_key(ret.salt);
+
+        if (!temp_key_secure) {
+            // on failure, return a zeroed out struct
+            sodium_memzero(&ret, sizeof(ret));
+        } else {
+            // on success copy the key out
+            for (size_t i = 0; i < crypto_secretbox_KEYBYTES; i++) {
+                ret.key[i] = temp_key_secure[i];
+            }
+        }
+
+        sodium_memzero(temp_key_secure, crypto_secretbox_KEYBYTES);
+        free(temp_key_secure);
+
+        return ret;
+    }
+
+    encrypted_payload_t steg_encrypt(msg_data_t *plaintext, key_salt_pair_t key_and_salt) {
+
+        encrypted_payload_t message;
+
+        // populate the nonce field
+        randombytes_buf(message.nonce, crypto_secretbox_NONCEBYTES);
+
+        // populate the salt field
+        for (int i = 0; i < crypto_pwhash_SALTBYTES; i++) {
+            message.salt[i] = key_and_salt.salt[i];
+        }
+
+        message.msg_len = plaintext->size;
+
+        int ciphertext_len = crypto_secretbox_MACBYTES + message.msg_len;
+
+        message.ciphertext = calloc(ciphertext_len, 1);
+
+        if (!message.ciphertext) {
+            message.msg_len = -1;
+            sodium_memzero(plaintext, sizeof(*plaintext));
+            fprintf(stderr, "Couldn't allocate space for ciphertext! Aborting.\n");
+            return message;
+        }
+
+        message.payload_len = crypto_secretbox_NONCEBYTES + crypto_pwhash_SALTBYTES + sizeof(message.msg_len) + ciphertext_len;
+
+        // actually do the encryption
+        crypto_secretbox_easy(message.ciphertext, (unsigned char *)plaintext->msg, 
+            plaintext->size, message.nonce, key_and_salt.key);
+
+        sodium_memzero(plaintext, sizeof(*plaintext));
+
+        return message;
+    }
+
+    msg_data_t steg_decrypt (encrypted_payload_t *ciphertext_payload) {
+        msg_data_t ret;
+        ret.msg = 0;
+        ret.size = 0;
+
+        char *plaintext = calloc(ciphertext_payload->msg_len + 1, sizeof(char));
+        if (!plaintext) {
+            fprintf(stderr, "Could not allocate space for plaintext message! Aborting.\n");
+            
+            ret.size = -1;
+
+            return ret;
+        }
+        
+        unsigned char *key_secure = generate_key(ciphertext_payload->salt);
+
+        if (crypto_secretbox_open_easy((unsigned char *)plaintext, 
+            ciphertext_payload->ciphertext, ciphertext_payload->msg_len 
+            + crypto_secretbox_MACBYTES, ciphertext_payload->nonce,
+            key_secure) != 0) {
+
+            // decryption failed!
+            sodium_memzero(key_secure, crypto_secretbox_KEYBYTES);
+            free(key_secure);
+
+            fprintf(stderr, "Decryption failed, possibly due to an incorrect password! Aborting.\n");
+
+            ret.size = -1;
+            return ret;
+        }
+
+        // decryption worked!
+        sodium_memzero(key_secure, crypto_secretbox_KEYBYTES);
+        free(key_secure);
+
+        ret.size = ciphertext_payload->msg_len;
+        ret.msg = plaintext;
+
+        return ret;
+    }
+
+    char *package_payload(encrypted_payload_t *payload) {
+        
+        char *ret_buf = calloc(payload->payload_len, 1);
+
+        printf("Payload length:\t%zu\n", payload->payload_len);
+
+        if (!ret_buf) {
+            fprintf(stderr, "Couldn't allocate space to package payload! Aborting.\n");
+            return 0;
+        }
+
+        memcpy(ret_buf, payload->nonce, crypto_secretbox_NONCEBYTES);
+        memcpy(ret_buf + crypto_secretbox_NONCEBYTES, payload->salt, 
+            crypto_pwhash_SALTBYTES);
+        memcpy(ret_buf + crypto_secretbox_NONCEBYTES + crypto_pwhash_SALTBYTES, 
+            &(payload->msg_len), sizeof(payload->msg_len));
+        memcpy(ret_buf + crypto_secretbox_NONCEBYTES + crypto_pwhash_SALTBYTES + 
+            sizeof(payload->msg_len), payload->ciphertext, 
+            payload->msg_len + crypto_secretbox_MACBYTES);
+
+        return ret_buf;
+    }
+
+    encrypted_payload_t extract_payload (msg_data_t *raw_msg) {
+        encrypted_payload_t ret_payload;
+
+        memcpy(ret_payload.nonce, raw_msg->msg, crypto_secretbox_NONCEBYTES);
+        memcpy(ret_payload.salt, raw_msg->msg + crypto_secretbox_NONCEBYTES,
+            crypto_pwhash_SALTBYTES);
+        ret_payload.msg_len = *((size_t *)(raw_msg->msg + crypto_secretbox_NONCEBYTES
+            + crypto_pwhash_SALTBYTES));
+        ret_payload.ciphertext = (unsigned char *)(raw_msg->msg + 
+            crypto_secretbox_NONCEBYTES + crypto_pwhash_SALTBYTES + 
+            sizeof(ret_payload.msg_len));
+
+        size_t actual_len = crypto_secretbox_NONCEBYTES + crypto_pwhash_SALTBYTES
+            + sizeof(size_t) + ret_payload.msg_len + crypto_secretbox_MACBYTES;
+
+        if (raw_msg->size != actual_len) {
+
+            // passed in payload length didn't match calculated payload length
+            fprintf(stderr, "Corrupted message payload! Aborting.\n\tExpected %zu. Got %zu. MSG LEN: %zu", 
+                raw_msg->size, actual_len, ret_payload.msg_len);
+            ret_payload.msg_len = -1;
+            ret_payload.payload_len = -1;
+            ret_payload.ciphertext = 0;
+
+            return ret_payload;
+        }
+
+        ret_payload.payload_len = raw_msg->size;
+
+        return ret_payload;
+    }
+
 #endif

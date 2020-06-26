@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Werror -Wpedantic -DOBFUSCATE
+CFLAGS=-Wall -Werror -Wpedantic -lsodium -DOBFUSCATE -DENCRYPT
 DEBUG_FLAG=-g
 FILES=main.c stegosaurus.c utils.c 
 OUT_FILE=stegosaurus
