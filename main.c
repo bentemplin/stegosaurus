@@ -63,9 +63,23 @@ int main (int argc, char **argv) {
     // encrypt if necessary
     #ifdef ENCRYPT
 
-    key_salt_pair_t key_info = generate_key_and_salt();
+    key_salt_pair_t *key_info = calloc(1, sizeof(key_salt_pair_t));
+
+    if (!key_info) {
+        fprintf(stderr, "Couldn't allocate key salt pair! Aborting.\n");
+        free(msg.msg);
+
+        exit(1);
+    }
+
+    sodium_mlock(key_info, sizeof(key_salt_pair_t));
+
+    generate_key_and_salt(key_info);
 
     encrypted_payload_t enc_payload = steg_encrypt(&msg, key_info);
+
+    sodium_munlock(key_info, sizeof(key_salt_pair_t));
+    free(key_info);
 
     printf("Nonce:\t\t\t");
     print_buf_to_hex(enc_payload.nonce, crypto_secretbox_NONCEBYTES);
@@ -82,6 +96,11 @@ int main (int argc, char **argv) {
     free(msg.msg);
 
     msg.msg = package_payload(&enc_payload);
+    if (!msg.msg) {
+        fprintf(stderr, "Couldn't alloc space for payload! Aborting.\n");
+        exit(1);
+    }
+
     msg.size = enc_payload.payload_len;
 
     #endif
@@ -97,7 +116,6 @@ int main (int argc, char **argv) {
     msg_data_t extracted_msg = extract_msg_from_img(out_fname);
     if (extracted_msg.size < 0) {
         // error
-        free(extracted_msg.msg);
         fprintf(stderr, "Could not extract message! Aborting.\n");
         exit(1);
     } 
@@ -132,6 +150,7 @@ int main (int argc, char **argv) {
     print_buf_to_hex(recovered_payload.ciphertext, recovered_payload.msg_len + crypto_secretbox_MACBYTES);
     printf("\n");
 
+    free(extracted_msg.msg);
     extracted_msg = steg_decrypt(&recovered_payload);
 
     if (extracted_msg.size == -1) {

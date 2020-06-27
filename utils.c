@@ -29,7 +29,7 @@ msg_data_t read_message_from_file(const char *filename) {
 
     msg_data_t ret;
     ret.size = -1;
-    ret.msg = "";
+    ret.msg = 0;
 
     if (!test_extension(filename, ".txt")) {
         fprintf(stderr, "Can't read message from non .txt file! Filename: \"%s\"\n", filename);
@@ -99,69 +99,58 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
 #endif
 
 #ifdef ENCRYPT
-    unsigned char *generate_key(unsigned char *salt) {
-        unsigned char *ret_key = calloc(crypto_secretbox_KEYBYTES, 1);
+    void generate_key(unsigned char *key, unsigned char *salt) {
 
-        if (!ret_key) {
-            fprintf(stderr, "Could not malloc space for new key! Aborting.\n");
-            return 0;
-        }
-
+        size_t pass_len_secure;
         char *password_secure = getpass("Enter Password: ");
 
         if (!password_secure) {
             fprintf(stderr, "Could not retrieve input password! Aborting\n");
-            free(ret_key);
 
-            return 0;
+            sodium_memzero(key, crypto_secretbox_KEYBYTES);
+            return;
         }
 
-        if (crypto_pwhash(ret_key, crypto_secretbox_KEYBYTES, password_secure, 
+        sodium_mlock(password_secure, (pass_len_secure = strlen(password_secure))); // lock the password
+        sodium_mlock(&pass_len_secure, sizeof(size_t)); // lock the password's length
+
+        if (crypto_pwhash(key, crypto_secretbox_KEYBYTES, password_secure, 
             strlen(password_secure), salt, crypto_pwhash_OPSLIMIT_INTERACTIVE, 
             crypto_pwhash_MEMLIMIT_INTERACTIVE, crypto_pwhash_ALG_DEFAULT) != 0) {
             // error
             fprintf(stderr, "Could not generate key! Aborting\n");
 
-            sodium_memzero(password_secure, strlen(password_secure));
-            sodium_memzero(ret_key, crypto_secretbox_KEYBYTES);
-            free(ret_key);
+            sodium_munlock(password_secure, pass_len_secure);
+            sodium_munlock(&pass_len_secure, sizeof(size_t));
 
-            return 0;
+            sodium_memzero(key, crypto_secretbox_KEYBYTES);
+            return;
         }
         
         printf("Key generation successful.\n");
 
-        sodium_memzero(password_secure, strlen(password_secure));
+        sodium_munlock(password_secure, pass_len_secure);
+        sodium_munlock(&pass_len_secure, sizeof(size_t));
 
-        return ret_key;
     }
 
-    key_salt_pair_t generate_key_and_salt() {
-        key_salt_pair_t ret;
+    void generate_key_and_salt(key_salt_pair_t *key_salt_pair) {
 
-        randombytes_buf(ret.salt, sizeof(ret.salt));
+        randombytes_buf(key_salt_pair->salt, crypto_pwhash_SALTBYTES);
 
         printf("Salt generation successful.\n");
 
-        unsigned char *temp_key_secure = generate_key(ret.salt);
+        generate_key(key_salt_pair->key, key_salt_pair->salt);
 
-        if (!temp_key_secure) {
+        if (!(*key_salt_pair->key)) {
             // on failure, return a zeroed out struct
-            sodium_memzero(&ret, sizeof(ret));
-        } else {
-            // on success copy the key out
-            for (size_t i = 0; i < crypto_secretbox_KEYBYTES; i++) {
-                ret.key[i] = temp_key_secure[i];
-            }
+            sodium_memzero(key_salt_pair, sizeof(key_salt_pair_t));
+            key_salt_pair = 0;
+            return;
         }
-
-        sodium_memzero(temp_key_secure, crypto_secretbox_KEYBYTES);
-        free(temp_key_secure);
-
-        return ret;
     }
 
-    encrypted_payload_t steg_encrypt(msg_data_t *plaintext, key_salt_pair_t key_and_salt) {
+    encrypted_payload_t steg_encrypt(msg_data_t *plaintext, key_salt_pair_t *key_and_salt) {
 
         encrypted_payload_t message;
 
@@ -170,7 +159,7 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
 
         // populate the salt field
         for (int i = 0; i < crypto_pwhash_SALTBYTES; i++) {
-            message.salt[i] = key_and_salt.salt[i];
+            message.salt[i] = key_and_salt->salt[i];
         }
 
         message.msg_len = plaintext->size;
@@ -190,8 +179,10 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
 
         // actually do the encryption
         crypto_secretbox_easy(message.ciphertext, (unsigned char *)plaintext->msg, 
-            plaintext->size, message.nonce, key_and_salt.key);
+            plaintext->size, message.nonce, key_and_salt->key);
 
+        sodium_memzero(plaintext->msg, plaintext->size);
+        free(plaintext->msg);
         sodium_memzero(plaintext, sizeof(*plaintext));
 
         return message;
@@ -210,8 +201,29 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
 
             return ret;
         }
+
+        unsigned char *key_secure = calloc(crypto_secretbox_KEYBYTES, 1);
+
+        if (!key_secure) {
+            fprintf(stderr, "Could not allocate space for decryption key! Aborting.\n");
+            
+            free(plaintext);
+            ret.size = -1;
+
+            return ret;
+        }
         
-        unsigned char *key_secure = generate_key(ciphertext_payload->salt);
+        sodium_mlock(key_secure, crypto_secretbox_KEYBYTES);
+        generate_key(key_secure, ciphertext_payload->salt);
+
+        if (*key_secure == 0) {
+            sodium_munlock(key_secure, crypto_secretbox_KEYBYTES);
+            free(key_secure);
+            free(plaintext);
+
+            ret.size = -1;
+            return ret;
+        }
 
         if (crypto_secretbox_open_easy((unsigned char *)plaintext, 
             ciphertext_payload->ciphertext, ciphertext_payload->msg_len 
@@ -219,8 +231,11 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
             key_secure) != 0) {
 
             // decryption failed!
-            sodium_memzero(key_secure, crypto_secretbox_KEYBYTES);
+            sodium_munlock(key_secure, crypto_secretbox_KEYBYTES);
             free(key_secure);
+
+            sodium_memzero(plaintext, ciphertext_payload->msg_len + 1);
+            free(plaintext);
 
             fprintf(stderr, "Decryption failed, possibly due to an incorrect password! Aborting.\n");
 
@@ -229,7 +244,7 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
         }
 
         // decryption worked!
-        sodium_memzero(key_secure, crypto_secretbox_KEYBYTES);
+        sodium_munlock(key_secure, crypto_secretbox_KEYBYTES);
         free(key_secure);
 
         ret.size = ciphertext_payload->msg_len;

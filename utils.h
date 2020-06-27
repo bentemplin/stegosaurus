@@ -18,6 +18,7 @@
         which libraries need to be included!
 
 */
+// #define ENCRYPT
 
 #ifdef ENCRYPT
 #include <sodium.h>
@@ -96,43 +97,53 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz);
 /** @brief Generates a key from a known salt and user-supplied password.
   *
   * Using a program-supplied salt, this function generates a key of length
-  * `crypto_secretbox_KEYBYTES` to be used in encryption. NOTE: The returned key 
-  * pointer contains sensitive information and should be securely erased when no 
-  * longer needed!
+  * `crypto_secretbox_KEYBYTES` to be used in encryption. The key will be placed
+  * in a buffer supplied as a parameter.
   * 
+  * NOTE: This function provides no memory security management of the passed in 
+  * buffer. That should be done by the caller.
+  * 
+  * NOTE: On error, this function will set the key to 0.
+  * 
+  * @param key A buffer of length `crypto_secretbox_KEYBYTES` in which to put the
+  *            generated key. On the value of the key will be set to 0.
   * @param salt A salt of length `crypto_pwhash_SALTBYTES` to use for key generation.
-  *
-  * @return A pointer to a buffer of length `crypto_secretbox_KEYBYTES` containing the key.
-  *         NOTE: The returned key pointer contains sensitive information and should be
-  *         securely erased when no longer needed!
   */ 
-unsigned char *generate_key(unsigned char *salt);
+void generate_key(unsigned char *key, unsigned char *salt);
 
 /** @brief Generates a key and salt from a user-supplied password.
   *
   * This function non-determinstically generates a salt and calls the `generate_key`
-  * function to use that salt to generate a key from a user supplied password. 
+  * function to use that salt to generate a key from a user supplied password.
+  *  
   * NOTE: Calling this function and providing the same password will NOT necessarily
   * generate the same salt value.
   * 
-  * @return A `key_salt_pair_t` struct containing the key and the salt. Returns
-  *         NULL on error.
+  * NOTE: This function does not do secure memory management of the key. That is
+  * the responsibility of the caller.
+  * 
+  * @param key_salt_pair Pointer to a struct to write the key_salt_pair. On error,
+  *                      the function will clear, free, and set this pointer to 0.
   */ 
-key_salt_pair_t generate_key_and_salt();
+void generate_key_and_salt(key_salt_pair_t *key_salt_pair);
 
 /** @brief Encrypts a provided message using the provided key and salt pair.
   *
   * This function uses a Libsodium SecretBox to encrypt messages. It takes in a
   * key and salt for the encryption and will generate its own nonce to be used.
+  * 
   * NOTE: This function will erase the plaintext!
   * 
+  * NOTE: This function does not do secure memory management of the key. That is
+  * the responsibility of the caller.
+  * 
   * @param plaintext Pointer to the message to encrypt. NOTE: This function will erase the plaintext!
-  * @param key_and_salt Key and salt pair to use for encrypting the message.
+  * @param key_and_salt Pointer to key and salt pair to use for encrypting the message.
   * 
   * @return An encrypted payload containing the newly encrypted message and
   *         associated metadata necessary for decryption.
   */ 
-encrypted_payload_t steg_encrypt(msg_data_t *plaintext, key_salt_pair_t key_and_salt);
+encrypted_payload_t steg_encrypt(msg_data_t *plaintext, key_salt_pair_t *key_and_salt);
 
 /** @brief Decrypts a message recovered from an image file.
   *

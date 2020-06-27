@@ -104,7 +104,10 @@ msg_data_t extract_msg_from_img(char *file_name) {
     ret.msg = msg_buf;
     ret.size = msg_size;
 
-    if (fread(msg_buf, sizeof(char), msg_size, file) != msg_size) ret.size = STEG_UNSPECIFIED_ERROR;
+    if (fread(msg_buf, sizeof(char), msg_size, file) != msg_size) {
+        ret.size = STEG_UNSPECIFIED_ERROR;
+        free(ret.msg);
+    }
     
     // for (int i = 0; i < msg_size; i++) {
     //     fread(&cur_byte, sizeof(char), 1, file);
