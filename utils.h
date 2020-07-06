@@ -111,7 +111,7 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz);
   *            generated key. On the value of the key will be set to 0.
   * @param salt A salt of length `crypto_pwhash_SALTBYTES` to use for key generation.
   */ 
-void generate_key(unsigned char *key, unsigned char *salt);
+void generate_key(unsigned char *key, const unsigned char *salt);
 
 /** @brief Generates a key and salt from a user-supplied password.
   *
