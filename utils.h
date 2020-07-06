@@ -191,3 +191,4 @@ char *package_payload (encrypted_payload_t *payload);
 encrypted_payload_t extract_payload (msg_data_t *raw_msg);
 
 #endif
+#endif
