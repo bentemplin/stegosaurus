@@ -1,5 +1,7 @@
 #include "utils.h"
 
+#define MAX_PASSWORD_LEN 1024 // Do this at the top. Or use crypto_secretbox_KEYBYTES?
+
 bool test_extension(const char *filename, const char *desired_extension) {
     size_t fname_len = strlen(filename);
     size_t ext_len = strlen(desired_extension);
@@ -58,6 +60,10 @@ msg_data_t read_message_from_file(const char *filename) {
 
     ret.size = msg_len;
 
+#ifdef ENCRYPT
+    sodium_mlock(ret.msg, ret.size);
+#endif
+
     // copy message into ret buffer
     int copy_idx = 0;
     char curr_char;
@@ -70,7 +76,7 @@ msg_data_t read_message_from_file(const char *filename) {
     return ret;
 }
 
-void print_buf_to_hex(void *buf, size_t size) {
+void print_buf_to_hex(const void *buf, size_t size) {
     char *char_buf = (char *)buf;
     for (size_t i = 0; i < size; i++) {
         printf("%02x ", 0xff & char_buf[i]);
@@ -99,20 +105,15 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
 #endif
 
 #ifdef ENCRYPT
-    void generate_key(unsigned char *key, unsigned char *salt) {
+    void generate_key(unsigned char *key, const unsigned char *salt) {
 
-#include <readpassphrase.h> // Do this up at the top...
-#define MAX_PASSWORD_LEN 1024 // Do this at the top. Or use crypto_secretbox_KEYBYTES?
-        size_t pass_len_secure;
         char password_secure[crypto_secretbox_KEYBYTES];
-        sodium_mlock(password_secure, crypto_secretbox_KEYBYTES];
-        if (readpassphrase("Enter Password: ", password_secure, crypto_secretbox_KEYBYTES, RPP_REQUIRE_TTY) == NULL)
+        sodium_mlock(password_secure, crypto_secretbox_KEYBYTES);
+        if (readpassphrase("Enter Password: ", password_secure, crypto_secretbox_KEYBYTES, RPP_REQUIRE_TTY) == NULL) {
             fprintf(stderr, "Could not retrieve input password! Aborting\n");
             sodium_munlock(password_secure, crypto_secretbox_KEYBYTES);
             return;
         }
-        sodium_mlock(&pass_len_secure, sizeof(size_t)); // lock the password's length
-        
 
         if (crypto_pwhash(key, crypto_secretbox_KEYBYTES, password_secure, 
             strlen(password_secure), salt, crypto_pwhash_OPSLIMIT_INTERACTIVE, 
@@ -120,17 +121,9 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
             // error
             fprintf(stderr, "Could not generate key! Aborting\n");
 
-            sodium_munlock(password_secure, pass_len_secure);
-            sodium_munlock(&pass_len_secure, sizeof(size_t));
-
             sodium_memzero(key, crypto_secretbox_KEYBYTES);
             return;
         }
-        
-        printf("Key generation successful.\n");
-
-        sodium_munlock(password_secure, pass_len_secure);
-        sodium_munlock(&pass_len_secure, sizeof(size_t));
 
     }
 
@@ -138,14 +131,11 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
 
         randombytes_buf(key_salt_pair->salt, crypto_pwhash_SALTBYTES);
 
-        printf("Salt generation successful.\n");
-
         generate_key(key_salt_pair->key, key_salt_pair->salt);
 
         if (!(*key_salt_pair->key)) {
             // on failure, return a zeroed out struct
             sodium_memzero(key_salt_pair, sizeof(key_salt_pair_t));
-            key_salt_pair = 0;
             return;
         }
     }
@@ -170,7 +160,6 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
 
         if (!message.ciphertext) {
             message.msg_len = -1;
-            sodium_memzero(plaintext, sizeof(*plaintext));
             fprintf(stderr, "Couldn't allocate space for ciphertext! Aborting.\n");
             return message;
         }
@@ -180,10 +169,6 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
         // actually do the encryption
         crypto_secretbox_easy(message.ciphertext, (unsigned char *)plaintext->msg, 
             plaintext->size, message.nonce, key_and_salt->key);
-
-        sodium_memzero(plaintext->msg, plaintext->size);
-        free(plaintext->msg);
-        sodium_memzero(plaintext, sizeof(*plaintext));
 
         return message;
     }
@@ -257,8 +242,6 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
         
         char *ret_buf = calloc(payload->payload_len, sizeof(char));
 
-        printf("Payload length:\t%zu\n", payload->payload_len);
-
         if (!ret_buf) {
             fprintf(stderr, "Couldn't allocate space to package payload! Aborting.\n");
             return 0;
@@ -293,9 +276,11 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
 
         if (raw_msg->size != actual_len) {
 
+#ifdef DEBUG
             // passed in payload length didn't match calculated payload length
             fprintf(stderr, "Corrupted message payload! Aborting.\n\tExpected %zu. Got %zu. MSG LEN: %zu", 
                 raw_msg->size, actual_len, ret_payload.msg_len);
+#endif
             ret_payload.msg_len = -1;
             ret_payload.payload_len = -1;
             ret_payload.ciphertext = 0;

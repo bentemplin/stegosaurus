@@ -6,7 +6,7 @@ OUT_FILE=stegosaurus
 # Flags
 CFLAGS=-Wall -Werror -Wpedantic -DOBFUSCATE
 ENCRYPT_FLAG=-DENCRYPT
-DEBUG_FLAG=-g
+DEBUG_FLAG=-g -DDEBUG
 
 # Libs
 ENCRYPT_LIB=-lsodium
@@ -21,9 +21,9 @@ stegosaurus: $(FILES)
 stego_debug: $(FILES)
 	@ $(CC) $(CFLAGS) $(DEBUG_FLAG) $(ENCRYPT_FLAG) $(ENCRYPT_LIB) $(FILES) -o $(OUT_FILE)
 else 
-default:
+stegosaurus:
 	@ $(CC) $(CFLAGS) $(FILES) -o $(OUT_FILE)
-debug:
+stego_debug:
 	@ $(CC) $(CFLAGS) $(DEBUG_FLAG) $(FILES) -o $(OUT_FILE)
 endif
 

@@ -2,7 +2,11 @@
 Steganography tool to insert messages into image files. Developed solely for fun; I wouldn't trust that anything in here is bulletproof.
 
 ## Dependencies
-If encryption is used, [Libsodium](https://doc.libsodium.org/) must be installed.
+
+If encryption is used, Libsodium must be installed. On macOS, it can be installed via HomeBrew; on Windows, it should be downloaded from the libsodium website.
+
+Libsodium can be installed from HomeBrew using the following command:
+`brew install libsodium`
 
 ## File Descriptions
 `main.c`: Runs the program and handles the command line interface. Included functions: `main`.
@@ -35,12 +39,12 @@ in the compiled program.
 ### Building
 The included Makefile provides the following commands, which should be preceded by `make`.
 
-|    Option     |               Description               |
-|:-------------:|-----------------------------------------|
-| \[`default`\] | Builds the program with obfuscation on. |
-|    `clean`    | Removes compiled files and directories. |
-|    `debug`    | Runs `default` target with debug flags. |
-|    `help`     | Outputs possible make options.          |
+|    Option     |                  Description                  |
+|:-------------:|-----------------------------------------------|
+|\[`stegosaurus`\]| Builds the program with obfuscation on.     |
+|     `clean`     | Removes compiled files and directories.     |
+|  `stego_debug`  | Runs `stegosaurus` target with debug flags. |
+|     `help`      | Outputs possible make options.              |
 
 
 ### Running
@@ -51,3 +55,4 @@ Use `./stegosaurus` to run the progam. The following table explains which flags 
 |  i   |     Y     |        Y         | Source file for the image. Must have `.jpg` or `.jpeg` extension.            |
 |  m   |     Y     |        Y         | Source file containing the message to hide.                                  |
 |  o   |     Y     |        Y         | Output file to write the final image. Must have `.jpg` or `.jpeg` extension. |
+|  v   |     N     |        N         | Turn on verbose output mode.                                                 |

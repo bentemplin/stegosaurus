@@ -1,4 +1,4 @@
-#ifdef UTILS_H_
+#ifndef UTILS_H_
 #define UTILS_H_
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,11 +20,12 @@
         which libraries need to be included!
 
 */
-// #define ENCRYPT
+// #define ENCRYPT // uncomment this line so VS Code extentions work
 
 #ifdef ENCRYPT
 #include <sodium.h>
-#include <unistd.h>
+// #include <unistd.h>
+#include <readpassphrase.h> // Do this up at the top...
 
 typedef struct {
     size_t msg_len; /**< Message length. */
@@ -35,8 +36,8 @@ typedef struct {
 } encrypted_payload_t;
 
 typedef struct {
-    unsigned char key[crypto_secretbox_KEYBYTES];
-    unsigned char salt[crypto_pwhash_SALTBYTES];
+    unsigned char key[crypto_secretbox_KEYBYTES]; /**< Key value, which is sensitive. */
+    unsigned char salt[crypto_pwhash_SALTBYTES]; /**< Salt value, which is not sensitive. */
 } key_salt_pair_t;
 
 #endif
@@ -66,6 +67,10 @@ bool test_extension(const char *filename, const char *desired_extension);
 /** @brief Reads the message from a text file.
   * 
   * Reads in a message from a text file and puts it in a msg_data_t struct.
+  * 
+  * @note If encryption is turned on, the msg field will be locked becuase it is presumed
+  * that the plaintext is a sensitive value. This memory must be unlocked by the caller.
+  * On error, the msg field will not be locked.
   * 
   * @param filename Name of the file to read the message from.
   * 
@@ -108,7 +113,7 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz);
   * NOTE: On error, this function will set the key to 0.
   * 
   * @param key A buffer of length `crypto_secretbox_KEYBYTES` in which to put the
-  *            generated key. On the value of the key will be set to 0.
+  *            generated key. On error, the value of the key will be set to 0.
   * @param salt A salt of length `crypto_pwhash_SALTBYTES` to use for key generation.
   */ 
 void generate_key(unsigned char *key, const unsigned char *salt);
@@ -134,18 +139,17 @@ void generate_key_and_salt(key_salt_pair_t *key_salt_pair);
   * This function uses a Libsodium SecretBox to encrypt messages. It takes in a
   * key and salt for the encryption and will generate its own nonce to be used.
   * 
-  * NOTE: This function will erase the plaintext!
+  * NOTE: This function does not do secure memory management of the key or plaintext
+  * struct. That is the responsibility of the caller.
   * 
-  * NOTE: This function does not do secure memory management of the key. That is
-  * the responsibility of the caller.
-  * 
-  * @param plaintext Pointer to the message to encrypt. NOTE: This function will erase the plaintext!
+  * @param plaintext Pointer to the message to encrypt. @note This function does not securely manage
+  *                  the plaintext memory. That should be done by the caller.
   * @param key_and_salt Pointer to key and salt pair to use for encrypting the message.
   * 
   * @return An encrypted payload containing the newly encrypted message and
   *         associated metadata necessary for decryption.
   */ 
-encrypted_payload_t steg_encrypt(msg_data_t *plaintext, key_salt_pair_t *key_and_salt);
+encrypted_payload_t steg_encrypt(const msg_data_t *plaintext, const key_salt_pair_t *key_and_salt);
 
 /** @brief Decrypts a message recovered from an image file.
   *
@@ -159,7 +163,7 @@ encrypted_payload_t steg_encrypt(msg_data_t *plaintext, key_salt_pair_t *key_and
   * 
   * @return The plaintext message.
   */
-msg_data_t steg_decrypt (encrypted_payload_t *ciphertext_payload);
+msg_data_t steg_decrypt (const encrypted_payload_t *ciphertext_payload);
 
 /** @brief Converts an encrypted payload into a char * buffer.
   *
