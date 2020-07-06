@@ -118,7 +118,7 @@ void generate_key(unsigned char *key, unsigned char *salt);
   * This function non-determinstically generates a salt and calls the `generate_key`
   * function to use that salt to generate a key from a user supplied password.
   *  
-  * NOTE: Calling this function and providing the same password will NOT necessarily
+  * @note: Calling this function and providing the same password will NOT necessarily
   * generate the same salt value.
   * 
   * NOTE: This function does not do secure memory management of the key. That is
