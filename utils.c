@@ -150,7 +150,7 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
         }
     }
 
-    encrypted_payload_t steg_encrypt(msg_data_t *plaintext, key_salt_pair_t *key_and_salt) {
+    encrypted_payload_t steg_encrypt(const msg_data_t *plaintext, const key_salt_pair_t *key_and_salt) {
 
         encrypted_payload_t message;
 
