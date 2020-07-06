@@ -18,7 +18,7 @@ ENCRYPT=1
 ifdef ENCRYPT
 stegosaurus: $(FILES)
 	@ $(CC) $(CFLAGS) $(ENCRYPT_FLAG) $(ENCRYPT_LIB) $(FILES) -o $(OUT_FILE)
-debug:
+stego_debug: $(FILES)
 	@ $(CC) $(CFLAGS) $(DEBUG_FLAG) $(ENCRYPT_FLAG) $(ENCRYPT_LIB) $(FILES) -o $(OUT_FILE)
 else 
 default:
