@@ -188,7 +188,7 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
         return message;
     }
 
-    msg_data_t steg_decrypt (encrypted_payload_t *ciphertext_payload) {
+    msg_data_t steg_decrypt (const encrypted_payload_t *ciphertext_payload) {
         msg_data_t ret;
         ret.msg = 0;
         ret.size = 0;
