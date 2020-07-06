@@ -103,7 +103,7 @@ int main (int argc, char **argv) {
 
     msg.size = enc_payload.payload_len;
 
-    #endif
+#endif
 
     // hide the message
     int result = insert_msg_into_file(&msg, img_fname, out_fname);
