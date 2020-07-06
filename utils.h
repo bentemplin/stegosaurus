@@ -78,7 +78,7 @@ msg_data_t read_message_from_file(const char *filename);
   * @param buf Pointer to the buffer to print.
   * @param size Size of the buffer to print.
   */ 
-void print_buf_to_hex(void *buf, size_t size);
+void print_buf_to_hex(const void *buf, size_t size);
 
 #ifdef OBFUSCATE
 /** @brief Obfuscate a given message
