@@ -202,7 +202,7 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
             return ret;
         }
 
-        unsigned char *key_secure = calloc(crypto_secretbox_KEYBYTES, 1);
+        unsigned char *key_secure = calloc(crypto_secretbox_KEYBYTES, sizeof(char));
 
         if (!key_secure) {
             fprintf(stderr, "Could not allocate space for decryption key! Aborting.\n");
