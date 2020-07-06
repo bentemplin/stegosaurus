@@ -61,7 +61,7 @@ int main (int argc, char **argv) {
     msg_data_t msg = read_message_from_file(msg_fname);
 
     // encrypt if necessary
-    #ifdef ENCRYPT
+#ifdef ENCRYPT
 
     key_salt_pair_t *key_info = calloc(1, sizeof(key_salt_pair_t));
 
