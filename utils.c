@@ -255,7 +255,7 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
 
     char *package_payload(encrypted_payload_t *payload) {
         
-        char *ret_buf = calloc(payload->payload_len, 1);
+        char *ret_buf = calloc(payload->payload_len, sizeof(char));
 
         printf("Payload length:\t%zu\n", payload->payload_len);
 
