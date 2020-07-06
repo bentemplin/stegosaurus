@@ -27,11 +27,11 @@
 #include <unistd.h>
 
 typedef struct {
-    unsigned char nonce[crypto_secretbox_NONCEBYTES]; /**< Nonce generated for the message. */
-    unsigned char salt[crypto_pwhash_SALTBYTES]; /**< Salt generated for the password. */
     size_t msg_len; /**< Message length. */
     size_t payload_len; /**< Length of the final payload (excluding this field).*/
     unsigned char *ciphertext; /**< Ciphertext of encrypted message. */
+    unsigned char nonce[crypto_secretbox_NONCEBYTES]; /**< Nonce generated for the message. */
+    unsigned char salt[crypto_pwhash_SALTBYTES]; /**< Salt generated for the password. */
 } encrypted_payload_t;
 
 typedef struct {
