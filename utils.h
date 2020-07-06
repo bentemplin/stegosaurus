@@ -102,7 +102,7 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz);
   * `crypto_secretbox_KEYBYTES` to be used in encryption. The key will be placed
   * in a buffer supplied as a parameter.
   * 
-  * NOTE: This function provides no memory security management of the passed in 
+  * @note This function provides no memory security management of the passed in 
   * buffer. That should be done by the caller.
   * 
   * NOTE: On error, this function will set the key to 0.
