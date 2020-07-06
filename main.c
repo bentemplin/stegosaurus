@@ -98,7 +98,7 @@ int main (int argc, char **argv) {
     msg.msg = package_payload(&enc_payload);
     if (!msg.msg) {
         fprintf(stderr, "Couldn't alloc space for payload! Aborting.\n");
-        exit(1);
+        return 1;
     }
 
     msg.size = enc_payload.payload_len;
