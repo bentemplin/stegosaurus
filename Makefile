@@ -16,7 +16,7 @@ ENCRYPT_LIB=-lsodium
 ENCRYPT=1
 
 ifdef ENCRYPT
-default:
+stegosaurus: $(FILES)
 	@ $(CC) $(CFLAGS) $(ENCRYPT_FLAG) $(ENCRYPT_LIB) $(FILES) -o $(OUT_FILE)
 debug:
 	@ $(CC) $(CFLAGS) $(DEBUG_FLAG) $(ENCRYPT_FLAG) $(ENCRYPT_LIB) $(FILES) -o $(OUT_FILE)
@@ -38,4 +38,3 @@ help:
 	@ echo "make clean: remove compiled stegosaurus files"
 	@ echo "make debug: compile with debug flags"
 	@ echo
-
