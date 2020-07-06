@@ -101,18 +101,18 @@ void obfuscate(const unsigned char *src, unsigned char *dst, size_t sz) {
 #ifdef ENCRYPT
     void generate_key(unsigned char *key, unsigned char *salt) {
 
+#include <readpassphrase.h> // Do this up at the top...
+#define MAX_PASSWORD_LEN 1024 // Do this at the top. Or use crypto_secretbox_KEYBYTES?
         size_t pass_len_secure;
-        char *password_secure = getpass("Enter Password: ");
-
-        if (!password_secure) {
+        char password_secure[crypto_secretbox_KEYBYTES];
+        sodium_mlock(password_secure, crypto_secretbox_KEYBYTES];
+        if (readpassphrase("Enter Password: ", password_secure, crypto_secretbox_KEYBYTES, RPP_REQUIRE_TTY) == NULL)
             fprintf(stderr, "Could not retrieve input password! Aborting\n");
-
-            sodium_memzero(key, crypto_secretbox_KEYBYTES);
+            sodium_munlock(password_secure, crypto_secretbox_KEYBYTES);
             return;
         }
-
-        sodium_mlock(password_secure, (pass_len_secure = strlen(password_secure))); // lock the password
         sodium_mlock(&pass_len_secure, sizeof(size_t)); // lock the password's length
+        
 
         if (crypto_pwhash(key, crypto_secretbox_KEYBYTES, password_secure, 
             strlen(password_secure), salt, crypto_pwhash_OPSLIMIT_INTERACTIVE, 
