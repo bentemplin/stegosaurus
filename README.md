@@ -50,9 +50,14 @@ The included Makefile provides the following commands, which should be preceded 
 ### Running
 Use `./stegosaurus` to run the progam. The following table explains which flags are needed and what they do.
 
-| Flag | Required? | Argument Needed? |                                 Description                                  |
-|:----:|:---------:|:----------------:|------------------------------------------------------------------------------|
-|  i   |     Y     |        Y         | Source file for the image. Must have `.jpg` or `.jpeg` extension.            |
-|  m   |     Y     |        Y         | Source file containing the message to hide.                                  |
-|  o   |     Y     |        Y         | Output file to write the final image. Must have `.jpg` or `.jpeg` extension. |
-|  v   |     N     |        N         | Turn on verbose output mode.                                                 |
+| Flag | Required? | Argument Needed? |                                    Description                                     |
+|:----:|:---------:|:----------------:|------------------------------------------------------------------------------------|
+|  i   |     Y*    |        Y         | Source file for the image. Must have `.jpg` or `.jpeg` extension.                  |
+|  m   |     Y*    |        Y         | Source file containing the message to hide.                                        |
+|  o   |     Y*    |        Y         | Output file to write the final image. Must have `.jpg` or `.jpeg` extension.       |
+|  e   |     Y+    |        Y         | Extract a message from the passed in image. Must have `.jpg` or `.jpeg` extension. |
+|  v   |     N     |        N         | Turn on verbose output mode.                                                       |
+
+Arguments followed by * must all be used together to hide a message. Arguments followed by + must be used together to extract a message. Essentially, there are two options to run stegosaurus as follows:
+`./stegosaurus -i img_src_file_name -m msg_src_file_name -o img_output_file_name [-v]`
+or `./stegosaurus -e img_containing_msg_file_name [-v]`.
